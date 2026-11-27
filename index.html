@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The Battle Wolfies</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <div id="game-wrapper">
+    <canvas id="gameCanvas" width="960" height="540"></canvas>
+
+    <div id="ui-layer">
+      <div class="title-box">
+        <h1>The Battle Wolfies</h1>
+        <div class="subtitle">PROTOTYPE EDITION</div>
+      </div>
+
+      <div class="menu-controls">
+        <button id="btn-play">¡A LA BATALLA!</button>
+        <span class="hint">Presiona [ENTER] o [ESPACIO] • [R] para repetir intro</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Ajusta la extensión (.mp3, .ogg, .wav) según el archivo real en menu-ost/ -->
+  <audio id="menu-ost" src="menu-ost/initiarion_meadows_menu.mp3" loop preload="auto"></audio>
+
+  <script src="game.js"></script>
+</body>
+</html>

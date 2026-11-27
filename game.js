@@ -55,14 +55,18 @@ function easeInOutCubic(t) {
 }
 
 function triggerMenuOstFadeIn() {
-  if (ostStarted) return;
+  if (ostStarted || ostFading) return;
 
   menuOst.volume = 0;
+  ostFadeElapsed = 0;
+
   const playPromise = menuOst.play();
 
   if (playPromise !== undefined) {
     playPromise
       .then(() => {
+        menuOst.volume = 0;
+        ostFadeElapsed = 0;
         ostStarted = true;
         ostFading = true;
         pendingOstPlay = false;
@@ -72,6 +76,7 @@ function triggerMenuOstFadeIn() {
         pendingOstPlay = true;
       });
   } else {
+    menuOst.volume = 0;
     ostStarted = true;
     ostFading = true;
   }
@@ -80,11 +85,14 @@ function triggerMenuOstFadeIn() {
 function updateOstFade(dt) {
   if (!ostFading) return;
 
-  ostFadeElapsed += dt;
+  const safeDt = Math.min(dt, 0.1);
+  ostFadeElapsed += safeDt;
+
   const progress = Math.min(ostFadeElapsed / TIMING.ostFadeDuration, 1);
-  menuOst.volume = progress * TIMING.targetVolume;
+  menuOst.volume = Math.max(0, Math.min(TIMING.targetVolume, progress * TIMING.targetVolume));
 
   if (progress >= 1) {
+    menuOst.volume = TIMING.targetVolume;
     ostFading = false;
   }
 }
@@ -234,7 +242,7 @@ function draw() {
 
 function loop(timestamp) {
   if (!lastTimestamp) lastTimestamp = timestamp;
-  const dt = (timestamp - lastTimestamp) / 1000;
+  const dt = Math.min((timestamp - lastTimestamp) / 1000, 0.1);
   lastTimestamp = timestamp;
 
   update(dt);

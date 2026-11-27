@@ -13,6 +13,55 @@ const TIMING = {
   targetVolume: 0.75     // Volumen máximo del OST (0.0 a 1.0)
 };
 
+const STORAGE_KEY = 'battle_wolfies_last_session';
+
+const MENU_BACKGROUNDS = {
+  initiation_meadows: 'backgrounds/initiation_meadows_menu.png'
+};
+
+function loadSessionProgress() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      return {
+        chapter: Number.isFinite(parsed.chapter) ? parsed.chapter : 0,
+        stage: Number.isFinite(parsed.stage) ? parsed.stage : 1
+      };
+    }
+  } catch (_) {
+    // Si localStorage no está disponible, usamos valores por defecto
+  }
+  return { chapter: 0, stage: 1 };
+}
+
+function resolveMenuBackgroundKey(chapter, stage) {
+  if (chapter === 0 && stage >= 1 && stage <= 9) {
+    return 'initiation_meadows';
+  }
+  return 'initiation_meadows';
+}
+
+const sessionProgress = loadSessionProgress();
+const menuBgImage = new Image();
+menuBgImage.src = MENU_BACKGROUNDS[resolveMenuBackgroundKey(sessionProgress.chapter, sessionProgress.stage)];
+
+function setLastBattleStage(chapter, stage) {
+  sessionProgress.chapter = chapter;
+  sessionProgress.stage = stage;
+
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(sessionProgress));
+  } catch (_) {
+    // Ignorar errores de almacenamiento
+  }
+
+  const nextSrc = MENU_BACKGROUNDS[resolveMenuBackgroundKey(chapter, stage)];
+  if (nextSrc && menuBgImage.getAttribute('src') !== nextSrc) {
+    menuBgImage.src = nextSrc;
+  }
+}
+
 // Estado general
 let state = 'INTRO'; // 'INTRO' | 'MENU'
 let introTime = 0;
@@ -72,7 +121,6 @@ function triggerMenuOstFadeIn() {
         pendingOstPlay = false;
       })
       .catch(() => {
-        // Si el navegador bloquea el autoplay, se reintentará al primer clic/tecla
         pendingOstPlay = true;
       });
   } else {
@@ -104,7 +152,6 @@ function resetIntro() {
   camera.offsetY = -25;
   uiLayer.classList.remove('visible');
 
-  // Reinicia también el OST y su fade in
   menuOst.pause();
   menuOst.currentTime = 0;
   menuOst.volume = 0;
@@ -124,27 +171,20 @@ function update(dt) {
     const t2End = t1End + TIMING.zoomInDuration;
     const t3End = t2End + TIMING.zoomOutDuration;
 
-    // 1. Espera de 2s contemplando la pradera
     if (introTime <= t1End) {
       camera.zoom = 1.28;
       camera.offsetY = -25;
-    }
-    // 2. Zoom in ligero
-    else if (introTime <= t2End) {
+    } else if (introTime <= t2End) {
       const p = easeInOutCubic((introTime - t1End) / TIMING.zoomInDuration);
       camera.zoom = 1.28 + (1.46 - 1.28) * p;
       camera.offsetY = -25 + (-40 - -25) * p;
-    }
-    // 3. Zoom out panorámico + inicio de fade in del OST
-    else if (introTime <= t3End) {
+    } else if (introTime <= t3End) {
       triggerMenuOstFadeIn();
 
       const p = easeInOutCubic((introTime - t2End) / TIMING.zoomOutDuration);
       camera.zoom = 1.46 + (1.0 - 1.46) * p;
       camera.offsetY = -40 + (0 - -40) * p;
-    }
-    // 4. Fin de intro -> mostrar menú
-    else {
+    } else {
       triggerMenuOstFadeIn();
       camera.zoom = 1.0;
       camera.offsetY = 0;
@@ -157,7 +197,18 @@ function update(dt) {
 }
 
 function drawMeadowBackground() {
-  // 1. Cielo degradado
+  const isMeadowStage =
+    sessionProgress.chapter === 0 &&
+    sessionProgress.stage >= 1 &&
+    sessionProgress.stage <= 9;
+
+  if (isMeadowStage && menuBgImage.complete && menuBgImage.naturalWidth > 0) {
+    // Margen extra para cubrir el zoom in / zoom out sin mostrar bordes vacíos
+    ctx.drawImage(menuBgImage, -150, -150, canvas.width + 300, canvas.height + 300);
+    return;
+  }
+
+  // Respaldo mientras carga la imagen o si está en otra etapa aún sin fondo asignado
   const skyGrad = ctx.createLinearGradient(0, 0, 0, canvas.height);
   skyGrad.addColorStop(0, '#4bcffa');
   skyGrad.addColorStop(0.65, '#a3e4ff');
@@ -165,44 +216,8 @@ function drawMeadowBackground() {
   ctx.fillStyle = skyGrad;
   ctx.fillRect(-250, -250, canvas.width + 500, canvas.height + 500);
 
-  // 2. Sol
-  ctx.fillStyle = 'rgba(255, 250, 205, 0.7)';
-  ctx.beginPath();
-  ctx.arc(480, 170, 55, 0, Math.PI * 2);
-  ctx.fill();
-
-  // 3. Colinas lejanas
-  ctx.fillStyle = '#7bed9f';
-  ctx.beginPath();
-  ctx.moveTo(-150, 540);
-  ctx.lineTo(-150, 340);
-  ctx.quadraticCurveTo(240, 270, 520, 330);
-  ctx.quadraticCurveTo(780, 380, 1110, 310);
-  ctx.lineTo(1110, 540);
-  ctx.closePath();
-  ctx.fill();
-
-  // 4. Pradera media
-  ctx.fillStyle = '#2ed573';
-  ctx.beginPath();
-  ctx.moveTo(-150, 540);
-  ctx.lineTo(-150, 375);
-  ctx.quadraticCurveTo(320, 410, 620, 365);
-  ctx.quadraticCurveTo(840, 335, 1110, 380);
-  ctx.lineTo(1110, 540);
-  ctx.closePath();
-  ctx.fill();
-
-  // 5. Suelo principal
   ctx.fillStyle = '#26de81';
   ctx.fillRect(-150, 415, canvas.width + 300, 180);
-
-  ctx.strokeStyle = '#20bf6b';
-  ctx.lineWidth = 4;
-  ctx.beginPath();
-  ctx.moveTo(-150, 415);
-  ctx.lineTo(canvas.width + 150, 415);
-  ctx.stroke();
 }
 
 function drawUnitCircle(unit, borderColor) {
@@ -259,7 +274,7 @@ function unlockPendingAudio() {
 
 function startGame() {
   if (state !== 'MENU') return;
-  alert('¡A la batalla! Aquí conectaremos el bucle de combate.');
+  alert(`¡A la batalla! Capítulo ${sessionProgress.chapter} - Etapa ${sessionProgress.stage}`);
 }
 
 btnPlay.addEventListener('click', () => {
@@ -285,5 +300,8 @@ window.addEventListener('keydown', (e) => {
     resetIntro();
   }
 });
+
+// Expone un helper opcional para probar cambios de etapa desde consola o al cerrar batalla
+window.setLastBattleStage = setLastBattleStage;
 
 requestAnimationFrame(loop);
